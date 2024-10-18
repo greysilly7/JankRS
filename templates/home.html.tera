@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ title }}</title>
+  <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+
+<body>
+  <div class="home-container">
+    <h1>Welcome to the Home Page</h1>
+    <p>This is the home page after a successful login.</p>
+
+    {% for user in users_data %}
+    <div class="user-section">
+      <h2>{{ user.username }} ({{ user.instance_url }})</h2>
+      <h3>Guilds:</h3>
+      <ul>
+        {% for guild in user.guilds %}
+        <li><a href="/guilds/{{ guild }}">{{ guild }}</a></li>
+        {% endfor %}
+      </ul>
+      <h3>Private Messages:</h3>
+      <ul>
+        {% for message in user.private_messages %}
+        <li>{{ message }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endfor %}
+  </div>
+</body>
+
+</html>

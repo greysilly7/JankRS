@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ title }}</title>
+  <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+
+<body>
+  <div class="guild-container">
+    <h1>{{ guild_id }}</h1>
+    <p>Welcome to the guild page for {{ guild_id }}.</p>
+
+    {% for guild in guild_data %}
+    <div class="guild-section">
+      <h2>{{ guild.guild.name }} ({{ guild.instance_url }})</h2>
+      <h3>Channels:</h3>
+      <ul>
+        {% for channel in guild.channels %}
+        <li><a href="/guilds/{{ guild_id }}/{{ channel.channel_id }}">{{ channel.channel_name }}</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endfor %}
+  </div>
+</body>
+
+</html>

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ title }}</title>
+  <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+
+<body>
+  <div class="channel-container">
+    <h1>{{ channel_id }}</h1>
+    <p>Welcome to the channel page for {{ channel_id }}.</p>
+
+    {% for channel in channel_data %}
+    <div class="channel-section">
+      <h3>Messages:</h3>
+      <ul>
+        {% for message in channel.messages %}
+        <li>{{ message.author }}: {{ message.content }}</li>
+        {% endfor %}
+      </ul>
+      <form action="/send_message" method="post">
+        <input type="hidden" name="guild_id" value="{{ guild_id }}">
+        <input type="hidden" name="channel_id" value="{{ channel.channel_id }}">
+        <input type="text" name="content" placeholder="Type your message here">
+        <button type="submit">Send</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+</body>
+
+</html>
