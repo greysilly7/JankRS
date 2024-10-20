@@ -63,7 +63,8 @@ pub async fn channel_page(
 
     let mut user_lock = user.lock().await;
     let mut channel_data = Vec::new();
-    for (instance_url, chorus_user) in user_lock.iter_mut() {
+    let mut guild_data = Vec::new();
+    for (_, chorus_user) in user_lock.iter_mut() {
         let channel_id = Snowflake::from(channel_id.parse::<u64>().unwrap());
         let messages = Channel::messages(
             GetChannelMessagesSchema::before(Snowflake::generate()),
@@ -71,7 +72,8 @@ pub async fn channel_page(
             chorus_user,
         )
         .await;
-        if let Ok(messages) = messages {
+        if let Ok(mut messages) = messages {
+            messages.sort_by_key(|m| m.timestamp); // Sort messages by timestamp
             let messages: Vec<HashMap<String, String>> = messages
                 .iter()
                 .map(|m| {
@@ -80,9 +82,16 @@ pub async fn channel_page(
                         .as_ref()
                         .map_or("Unknown".to_string(), |a| a.username.clone().unwrap());
                     let content = m.content.clone().unwrap_or_default();
+                    let timestamp = m.timestamp.to_string();
+                    let edited_timestamp = m
+                        .edited_timestamp
+                        .map(|t| t.to_string())
+                        .unwrap_or_default();
                     let mut message_data = HashMap::new();
                     message_data.insert("author".to_string(), author);
                     message_data.insert("content".to_string(), content);
+                    message_data.insert("timestamp".to_string(), timestamp);
+                    message_data.insert("edited_timestamp".to_string(), edited_timestamp);
                     message_data
                 })
                 .collect();
@@ -91,8 +100,27 @@ pub async fn channel_page(
                 "messages": messages,
             }));
         }
+
+        let guilds = chorus_user.get_guilds(None).await.unwrap_or_default();
+        for guild in guilds {
+            let channels = guild.channels(chorus_user).await.unwrap();
+            let mut channels_data = Vec::new();
+            for channel in channels {
+                channels_data.push(serde_json::json!({
+                    "channel_name": channel.name.clone().unwrap_or_default(),
+                    "channel_id": channel.id.to_string(),
+                }));
+            }
+            guild_data.push(serde_json::json!({
+                "guild_id": guild.id.to_string(),
+                "guild_name": guild.name.clone().unwrap_or_default(),
+                "guild_icon": guild.icon.clone().unwrap_or_default(),
+                "channels": channels_data,
+            }));
+        }
     }
     context.insert("channel_data", &channel_data);
+    context.insert("guild_data", &guild_data);
 
     Template::render("channel", &context.into_json())
 }

@@ -19,7 +19,16 @@ pub async fn home(user: &State<Arc<Mutex<HashMap<String, ChorusUser>>>>) -> Temp
 
         // Fetch guilds
         let guilds = chorus_user.get_guilds(None).await.unwrap_or_default();
-        let guild_names: Vec<String> = guilds.iter().filter_map(|g| g.name.clone()).collect();
+        let guilds_data: Vec<HashMap<String, String>> = guilds
+            .iter()
+            .map(|g| {
+                let mut guild_data = HashMap::new();
+                guild_data.insert("guild_id".to_string(), g.id.to_string());
+                guild_data.insert("guild_name".to_string(), g.name.clone().unwrap_or_default());
+                guild_data.insert("guild_icon".to_string(), g.icon.clone().unwrap_or_default());
+                guild_data
+            })
+            .collect();
 
         // Fetch private messages (assuming a method `get_private_channels` exists)
         let private_channels = chorus_user.get_private_channels().await.unwrap_or_default();
@@ -31,7 +40,7 @@ pub async fn home(user: &State<Arc<Mutex<HashMap<String, ChorusUser>>>>) -> Temp
         users_data.push(serde_json::json!({
             "instance_url": instance_url,
             "username": username,
-            "guilds": guild_names,
+            "guilds": guilds_data,
             "private_messages": private_message_contents,
         }));
     }

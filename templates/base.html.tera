@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Default Title{% endblock %}</title>
+  <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+
+<body>
+  <div class="container">
+    <div class="guilds">
+      {% block guilds %}{% endblock %}
+    </div>
+    <div class="channels">
+      <h3>Channels</h3>
+      <ul>
+        {% block channels %}{% endblock %}
+      </ul>
+    </div>
+    <div class="messages">
+      {% block content %}{% endblock %}
+      <div class="send-box">
+        {% block send_box %}{% endblock %}
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>

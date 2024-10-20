@@ -1,30 +1,41 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends "base" %}
 
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{{ title }}</title>
-  <link rel="stylesheet" href="/static/css/styles.css">
-</head>
+{% block title %}Guild: {{ guild_id }}{% endblock %}
 
-<body>
-  <div class="guild-container">
-    <h1>{{ guild_id }}</h1>
-    <p>Welcome to the guild page for {{ guild_id }}.</p>
+{% block guilds %}
+{% for guild in guild_data %}
+<li class="guild-icon">
+  <a href="/guilds/{{ guild.guild_id }}">
+    <img src="{{ guild.guild_icon }}" alt="{{ guild.guild_name }}">
+  </a>
+</li>
+{% endfor %}
+{% endblock %}
 
-    {% for guild in guild_data %}
-    <div class="guild-section">
-      <h2>{{ guild.guild.name }} ({{ guild.instance_url }})</h2>
-      <h3>Channels:</h3>
-      <ul>
-        {% for channel in guild.channels %}
-        <li><a href="/guilds/{{ guild_id }}/{{ channel.channel_id }}">{{ channel.channel_name }}</a></li>
-        {% endfor %}
-      </ul>
-    </div>
-    {% endfor %}
+{% block channels %}
+{% for guild in guild_data %}
+{% for channel in guild.channels %}
+<li><a href="/guilds/{{ guild.guild_id }}/{{ channel.channel_id }}">{{ channel.channel_name }}</a></li>
+{% endfor %}
+{% endfor %}
+{% endblock %}
+
+{% block content %}
+<div class="guild-container">
+  <h1>{{ guild_id }}</h1>
+  <p>Welcome to the guild page for {{ guild_id }}.</p>
+
+  {% for guild in guild_data %}
+  <div class="guild-section">
+    <h3>Channels:</h3>
+    <ul>
+      {% for channel in guild.channels %}
+      <li>
+        <a href="/guilds/{{ guild.guild_id }}/{{ channel.channel_id }}">{{ channel.channel_name }}</a>
+      </li>
+      {% endfor %}
+    </ul>
   </div>
-</body>
-
-</html>
+  {% endfor %}
+</div>
+{% endblock %}

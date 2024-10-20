@@ -1,5 +1,4 @@
 use chorus::instance::ChorusUser;
-use chorus::types::{Channel, GetChannelMessagesSchema, Snowflake};
 use rocket::tokio::sync::Mutex;
 use rocket::Route;
 use rocket::State;
@@ -33,7 +32,9 @@ pub async fn guild_page(
             }
             guild_data.push(serde_json::json!({
                 "instance_url": instance_url,
-                "guild": guild,
+                "guild_id": guild.id.to_string(),
+                "guild_name": guild.name.clone().unwrap_or_default(),
+                "guild_icon": guild.icon.clone().unwrap_or_default(),
                 "channels": channels_data,
             }));
         }

@@ -1,96 +1,118 @@
-/* CSS Variables for easy theming */
 :root {
-  --primary-color: #007BFF;
-  --primary-color-dark: #0056b3;
-  --background-color: #f0f4f8;
-  --form-background-color: #ffffff;
-  --border-color: #e0e0e0;
-  --text-color: #333333;
-  --input-background-color: #fafafa;
-  --input-border-color: #cccccc;
+  --primary-color: #4a90e2;
+  --primary-color-dark: #357ABD;
+  --background-color: #2c3e50;
+  --form-background-color: #34495e;
+  --border-color: #1c2833;
+  --text-color: #ecf0f1;
+  --input-background-color: #3b4a5a;
+  --input-border-color: #1c2833;
   --button-text-color: #ffffff;
-  --heading-color: #0056b3;
-  --error-color: #ff4d4d;
+  --heading-color: #ffffff;
+  --error-color: #e74c3c;
+  --message-background-color: #2f3b4a;
+  --message-hover-background-color: #3b4a5a;
 }
 
-/* General form styling */
-form {
-  max-width: 500px;
-  margin: 0 auto;
-  padding: 2em;
-  background: var(--form-background-color);
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  display: flex;
-  flex-direction: column;
-  gap: 1.5em;
-}
-
-form label {
-  color: var(--text-color);
-  font-weight: bold;
-  margin-bottom: 0.5em;
-}
-
-form input {
-  border: 1px solid var(--input-border-color);
-  padding: 0.75em;
-  font-size: 1em;
-  width: 100%;
-  box-sizing: border-box;
-  border-radius: 5px;
-  background: var(--input-background-color);
-  transition: border-color 0.3s;
-}
-
-form input:focus {
-  border-color: var(--primary-color);
-  outline: none;
-}
-
-form button {
-  padding: 0.75em;
-  color: var(--button-text-color);
-  background-color: var(--primary-color);
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 1em;
-  transition: background-color 0.3s;
-}
-
-form button:hover {
-  background-color: var(--primary-color-dark);
-}
-
-/* hCaptcha styling */
-.h-captcha {
-  margin: 1em 0;
-}
-
-/* Center the form on the page */
 body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background-color: var(--background-color);
+  color: var(--text-color);
   display: flex;
   justify-content: center;
   align-items: center;
   height: 100vh;
-  background-color: var(--background-color);
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  margin: 0;
-  padding: 0 1em;
-  box-sizing: border-box;
 }
 
-h1 {
-  color: var(--heading-color);
-  text-align: center;
-  margin-bottom: 1.5em;
+.container {
+  display: flex;
+  height: 100vh;
+  width: 100%;
 }
 
-p {
-  text-align: center;
+.guilds {
+  width: 80px;
+  background-color: var(--form-background-color);
   color: var(--text-color);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 0;
+}
+
+.channels {
+  width: 20%;
+  background-color: var(--form-background-color);
+  color: var(--text-color);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+}
+
+.messages {
+  flex: 1;
+  background-color: var(--input-background-color);
+  color: var(--text-color);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+}
+
+.guild-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  margin: 10px 0;
+  background-color: var(--input-background-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.guild-icon img {
+  width: 80%;
+  height: 80%;
+  border-radius: 50%;
+}
+
+.send-box {
+  margin-top: auto;
+  padding: 10px;
+  background-color: var(--form-background-color);
+  display: flex;
+  align-items: center;
+}
+
+.send-box input[type="text"] {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: 5px;
+  margin-right: 10px;
+  background-color: var(--input-background-color);
+  color: var(--text-color);
+}
+
+.send-box button {
+  padding: 10px;
+  border: none;
+  border-radius: 5px;
+  background-color: var(--primary-color);
+  color: var(--button-text-color);
+  cursor: pointer;
+}
+
+.send-box button:hover {
+  background-color: var(--primary-color-dark);
+}
+
+h3 {
+  padding: 10px;
+  color: var(--heading-color);
 }
 
 ul {
@@ -99,50 +121,98 @@ ul {
 }
 
 ul li {
-  background: var(--form-background-color);
-  border: 1px solid var(--border-color);
+  padding: 10px;
+  margin: 5px 0;
+  background-color: var(--message-background-color);
   border-radius: 5px;
-  padding: 0.75em;
-  margin-bottom: 0.5em;
   text-align: center;
+  transition: background-color 0.3s;
+}
+
+ul li:hover {
+  background-color: var(--message-hover-background-color);
+}
+
+ul li a {
+  color: var(--text-color);
+  text-decoration: none;
+}
+
+ul li a:hover {
+  text-decoration: underline;
+}
+
+.timestamp {
+  font-size: 0.8em;
+  color: var(--text-color);
+  margin-right: 10px;
+}
+
+/* Login Page Styles */
+.login-container {
+  max-width: 400px;
+  width: 100%;
+  margin: 20px;
+  padding: 30px;
+  background-color: var(--form-background-color);
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  box-sizing: border-box;
+}
+
+.login-container h1 {
+  text-align: center;
+  color: var(--heading-color);
+}
+
+.login-container label {
+  display: block;
+  margin-top: 10px;
+  color: var(--text-color);
+}
+
+.login-container input[type="text"],
+.login-container input[type="password"] {
+  width: 100%;
+  padding: 10px;
+  margin-top: 5px;
+  border: 1px solid var(--input-border-color);
+  border-radius: 5px;
+  background-color: var(--input-background-color);
+  color: var(--text-color);
+}
+
+.login-container button {
+  width: 100%;
+  padding: 10px;
+  margin-top: 20px;
+  border: none;
+  border-radius: 5px;
+  background-color: var(--primary-color);
+  color: var(--button-text-color);
+  cursor: pointer;
+}
+
+.login-container button:hover {
+  background-color: var(--primary-color-dark);
 }
 
 .error {
   color: var(--error-color);
+  margin-top: 10px;
   text-align: center;
-  margin-bottom: 1.5em;
-}
-
-/* Container for the login section */
-.login-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 100%;
-  max-width: 600px;
-  margin: 0 auto;
-  padding: 2em;
-  background: var(--form-background-color);
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  gap: 1.5em;
-  /* Add gap between elements */
-}
-
-.login-container h1 {
-  margin-bottom: 1.5em;
-}
-
-.login-container .error {
-  margin-bottom: 1.5em;
 }
 
 .login-container ul {
-  width: 100%;
+  list-style: none;
+  padding: 0;
+  margin-top: 20px;
 }
 
 .login-container ul li {
-  margin-bottom: 1em;
-  /* Increase margin between list items */
+  padding: 10px;
+  background-color: var(--input-background-color);
+  border-radius: 5px;
+  margin-top: 5px;
+  text-align: center;
 }

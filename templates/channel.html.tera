@@ -1,35 +1,56 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends "base" %}
 
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{{ title }}</title>
-  <link rel="stylesheet" href="/static/css/styles.css">
-</head>
+{% block title %}Guild: {{ guild_id }}{% endblock %}
 
-<body>
-  <div class="channel-container">
-    <h1>{{ channel_id }}</h1>
-    <p>Welcome to the channel page for {{ channel_id }}.</p>
+{% block guilds %}
+{% for guild in guild_data %}
+<li class="guild-icon">
+  <a href="/guilds/{{ guild.guild_id }}">
+    <img src="{{ guild.guild_icon }}" alt="{{ guild.guild_name }}">
+  </a>
+</li>
+{% endfor %}
+{% endblock %}
 
-    {% for channel in channel_data %}
-    <div class="channel-section">
-      <h3>Messages:</h3>
-      <ul>
-        {% for message in channel.messages %}
-        <li>{{ message.author }}: {{ message.content }}</li>
-        {% endfor %}
-      </ul>
-      <form action="/send_message" method="post">
-        <input type="hidden" name="guild_id" value="{{ guild_id }}">
-        <input type="hidden" name="channel_id" value="{{ channel.channel_id }}">
-        <input type="text" name="content" placeholder="Type your message here">
-        <button type="submit">Send</button>
-      </form>
-    </div>
-    {% endfor %}
+{% block channels %}
+{% for guild in guild_data %}
+{% for channel in guild.channels %}
+<li><a href="/guilds/{{ guild.guild_id }}/{{ channel.channel_id }}">{{ channel.channel_name }}</a></li>
+{% endfor %}
+{% endfor %}
+{% endblock %}
+
+{% block content %}
+<div class="channel-container">
+  <h1>Channel: {{ channel_id }}</h1>
+  <p>Welcome to the channel page for {{ channel_id }}.</p>
+
+  {% for channel in channel_data %}
+  <div class="channel-section">
+    <h3>Messages:</h3>
+    <ul>
+      {% for message in channel.messages %}
+      <li>
+        <strong>{{ message.author }}:</strong> {{ message.content }} <em>{{ message.timestamp | date(format="%Y-%m-%d
+          %H:%M") }}</em>
+        {% if message.edited_timestamp %}
+        <em>(edited at {{ message.edited_timestamp }})</em>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
   </div>
-</body>
+  {% endfor %}
+</div>
+{% endblock %}
 
-</html>
+{% block send_box %}
+<div class="send-box">
+  <form action="/send_message" method="post">
+    <input type="hidden" name="guild_id" value="{{ guild_id }}">
+    <input type="hidden" name="channel_id" value="{{ channel_id }}">
+    <input type="text" name="content" placeholder="Type your message here">
+    <button type="submit">Send</button>
+  </form>
+</div>
+{% endblock %}
