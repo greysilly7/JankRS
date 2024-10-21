@@ -24,7 +24,7 @@ pub struct LoginForm {
 #[post("/login", data = "<login_form>")]
 pub async fn login(
     login_form: Form<LoginForm>,
-    user: &State<Arc<Mutex<HashMap<String, ChorusUser>>>>,
+    user: &State<Arc<Mutex<Option<ChorusUser>>>>,
 ) -> Result<Redirect, Template> {
     let instance_result = Instance::new(&login_form.instance_url, None).await;
 
@@ -47,17 +47,14 @@ pub async fn login(
             match user_result {
                 Ok(logged_in_user) => {
                     let mut user_lock = user.lock().await;
-                    user_lock.insert(login_form.instance_url.clone(), logged_in_user.clone());
+                    *user_lock = Some(logged_in_user.clone());
 
                     let username = logged_in_user.object.read().unwrap().username.clone();
                     context.insert("authenticated", &"true".to_string());
                     context.insert("user", &username);
 
                     // Get the list of users
-                    let users: Vec<String> = user_lock
-                        .values()
-                        .map(|u| u.object.read().unwrap().username.clone())
-                        .collect();
+                    let users: Vec<String> = vec![username.clone()];
                     context.insert("users", &users);
 
                     return Ok(Redirect::to(uri!("/home")));

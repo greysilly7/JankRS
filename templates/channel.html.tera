@@ -25,14 +25,12 @@
   <h1>Channel: {{ channel_id }}</h1>
   <p>Welcome to the channel page for {{ channel_id }}.</p>
 
-  {% for channel in channel_data %}
   <div class="channel-section">
     <h3>Messages:</h3>
-    <ul>
-      {% for message in channel.messages %}
+    <ul id="messages-list">
+      {% for message in channel_data.messages %}
       <li>
-        <strong>{{ message.author }}:</strong> {{ message.content }} <em>{{ message.timestamp | date(format="%Y-%m-%d
-          %H:%M") }}</em>
+        <strong>{{ message.author }}:</strong> {{ message.content }} <em>{{ message.timestamp }}</em>
         {% if message.edited_timestamp %}
         <em>(edited at {{ message.edited_timestamp }})</em>
         {% endif %}
@@ -40,7 +38,6 @@
       {% endfor %}
     </ul>
   </div>
-  {% endfor %}
 </div>
 {% endblock %}
 
@@ -54,3 +51,50 @@
   </form>
 </div>
 {% endblock %}
+
+<script>
+  function addMessage(channel_id, author, content, append) {
+    const messagesList = document.getElementById('messages-list');
+    const newMessage = document.createElement('li');
+    newMessage.innerHTML = `<strong>${author}:</strong> ${content}`;
+    if (append) {
+      messagesList.appendChild(newMessage);
+    } else {
+      messagesList.insertBefore(newMessage, messagesList.firstChild);
+    }
+  }
+
+  function subscribe(uri) {
+    var retryTime = 1;
+
+    function connect(uri) {
+      const events = new EventSource(uri);
+
+      events.addEventListener("message", (ev) => {
+        console.log("raw data", JSON.stringify(ev.data));
+        const msg = JSON.parse(ev.data);
+        console.log("decoded data", JSON.stringify(msg));
+        if (!("content" in msg) || !("channel_id" in msg) || !("author" in msg)) return;
+        addMessage(msg.channel_id, msg.author, msg.content, true);
+      });
+
+      events.addEventListener("open", () => {
+        console.log(`connected to event stream at ${uri}`);
+        retryTime = 1;
+      });
+
+      events.addEventListener("error", () => {
+        events.close();
+
+        let timeout = retryTime;
+        retryTime = Math.min(64, retryTime * 2);
+        console.log(`connection lost. attempting to reconnect in ${timeout}s`);
+        setTimeout(() => connect(uri), timeout * 1000);
+      });
+    }
+
+    connect(uri);
+  }
+
+  subscribe(`http://127.0.0.1:8000/events`);
+</script>

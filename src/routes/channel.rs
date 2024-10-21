@@ -20,12 +20,13 @@ pub struct SendMessageForm {
 #[post("/send_message", data = "<send_message_form>")]
 pub async fn send_message(
     send_message_form: Form<SendMessageForm>,
-    user: &State<Arc<Mutex<HashMap<String, ChorusUser>>>>,
+    user: &State<Arc<Mutex<Option<ChorusUser>>>>,
+    messages_state: &State<Arc<Mutex<HashMap<String, Vec<HashMap<String, String>>>>>>,
 ) -> Result<Redirect, Template> {
     let send_message_form = send_message_form.into_inner();
     let mut user_lock = user.lock().await;
 
-    for (_, chorus_user) in user_lock.iter_mut() {
+    if let Some(chorus_user) = user_lock.as_mut() {
         let channel_id = Snowflake::from(send_message_form.channel_id.parse::<u64>().unwrap());
 
         if let Ok(_) = chorus_user
@@ -38,6 +39,20 @@ pub async fn send_message(
             )
             .await
         {
+            // Update the messages state
+            let mut messages_lock = messages_state.lock().await;
+            let messages = messages_lock
+                .entry(send_message_form.channel_id.clone())
+                .or_default();
+            messages.push(HashMap::from([
+                (
+                    "author".to_string(),
+                    chorus_user.object.read().unwrap().username.clone(),
+                ),
+                ("content".to_string(), send_message_form.content),
+                ("edited_timestamp".to_string(), "".to_string()),
+            ]));
+
             return Ok(Redirect::to(uri!(channel_page(
                 guild_id = send_message_form.guild_id,
                 channel_id = send_message_form.channel_id
@@ -54,7 +69,7 @@ pub async fn send_message(
 pub async fn channel_page(
     guild_id: &str,
     channel_id: &str,
-    user: &State<Arc<Mutex<HashMap<String, ChorusUser>>>>,
+    user: &State<Arc<Mutex<Option<ChorusUser>>>>,
 ) -> Template {
     let mut context = Context::new();
     context.insert("title", &format!("Channel: {}", channel_id));
@@ -62,10 +77,12 @@ pub async fn channel_page(
     context.insert("channel_id", channel_id);
 
     let mut user_lock = user.lock().await;
-    let mut channel_data = Vec::new();
+    let mut channel_data = HashMap::new();
     let mut guild_data = Vec::new();
-    for (_, chorus_user) in user_lock.iter_mut() {
+    if let Some(chorus_user) = user_lock.as_mut() {
         let channel_id = Snowflake::from(channel_id.parse::<u64>().unwrap());
+
+        // Fetch messages from the channel
         let messages = Channel::messages(
             GetChannelMessagesSchema::before(Snowflake::generate()),
             channel_id,
@@ -74,31 +91,7 @@ pub async fn channel_page(
         .await;
         if let Ok(mut messages) = messages {
             messages.sort_by_key(|m| m.timestamp); // Sort messages by timestamp
-            let messages: Vec<HashMap<String, String>> = messages
-                .iter()
-                .map(|m| {
-                    let author = m
-                        .author
-                        .as_ref()
-                        .map_or("Unknown".to_string(), |a| a.username.clone().unwrap());
-                    let content = m.content.clone().unwrap_or_default();
-                    let timestamp = m.timestamp.to_string();
-                    let edited_timestamp = m
-                        .edited_timestamp
-                        .map(|t| t.to_string())
-                        .unwrap_or_default();
-                    let mut message_data = HashMap::new();
-                    message_data.insert("author".to_string(), author);
-                    message_data.insert("content".to_string(), content);
-                    message_data.insert("timestamp".to_string(), timestamp);
-                    message_data.insert("edited_timestamp".to_string(), edited_timestamp);
-                    message_data
-                })
-                .collect();
-            channel_data.push(serde_json::json!({
-                "channel_id": channel_id.to_string(),
-                "messages": messages,
-            }));
+            channel_data.insert("messages".to_string(), messages);
         }
 
         let guilds = chorus_user.get_guilds(None).await.unwrap_or_default();

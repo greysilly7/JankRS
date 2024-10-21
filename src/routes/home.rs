@@ -8,13 +8,13 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 #[get("/home")]
-pub async fn home(user: &State<Arc<Mutex<HashMap<String, ChorusUser>>>>) -> Template {
+pub async fn home(user: &State<Arc<Mutex<Option<ChorusUser>>>>) -> Template {
     let mut user_lock = user.lock().await;
     let mut context = Context::new();
 
     let mut users_data = Vec::new();
 
-    for (instance_url, chorus_user) in user_lock.iter_mut() {
+    if let Some(chorus_user) = user_lock.as_mut() {
         let username = chorus_user.object.read().unwrap().username.clone();
 
         // Fetch guilds
@@ -38,7 +38,6 @@ pub async fn home(user: &State<Arc<Mutex<HashMap<String, ChorusUser>>>>) -> Temp
             .collect();
 
         users_data.push(serde_json::json!({
-            "instance_url": instance_url,
             "username": username,
             "guilds": guilds_data,
             "private_messages": private_message_contents,
