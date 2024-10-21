@@ -29,15 +29,16 @@ pub async fn send_message(
     if let Some(chorus_user) = user_lock.as_mut() {
         let channel_id = Snowflake::from(send_message_form.channel_id.parse::<u64>().unwrap());
 
-        if let Ok(_) = chorus_user
+        if chorus_user
             .send_message(
                 MessageSendSchema {
-                    content: Some(send_message_form.content.to_string()),
+                    content: Some(send_message_form.content.clone()),
                     ..Default::default()
                 },
                 channel_id,
             )
             .await
+            .is_ok()
         {
             // Update the messages state
             let mut messages_lock = messages_state.lock().await;
@@ -77,43 +78,23 @@ pub async fn channel_page(
     context.insert("channel_id", channel_id);
 
     let mut user_lock = user.lock().await;
-    let mut channel_data = HashMap::new();
-    let mut guild_data = Vec::new();
     if let Some(chorus_user) = user_lock.as_mut() {
         let channel_id = Snowflake::from(channel_id.parse::<u64>().unwrap());
 
         // Fetch messages from the channel
-        let messages = Channel::messages(
+        let mut messages = Channel::messages(
             GetChannelMessagesSchema::before(Snowflake::generate()),
             channel_id,
             chorus_user,
         )
-        .await;
-        if let Ok(mut messages) = messages {
-            messages.sort_by_key(|m| m.timestamp); // Sort messages by timestamp
-            channel_data.insert("messages".to_string(), messages);
-        }
+        .await
+        .unwrap_or_default();
+        messages.sort_by_key(|m| m.timestamp); // Sort messages by timestamp
+        context.insert("messages", &messages);
 
         let guilds = chorus_user.get_guilds(None).await.unwrap_or_default();
-        for guild in guilds {
-            let channels = guild.channels(chorus_user).await.unwrap();
-            let mut channels_data = Vec::new();
-            for channel in channels {
-                channels_data.push(serde_json::json!({
-                    "channel_name": channel.name.clone().unwrap_or_default(),
-                    "channel_id": channel.id.to_string(),
-                }));
-            }
-            guild_data.push(serde_json::json!({
-                "guild_id": guild.id.to_string(),
-                "guild_name": guild.name.clone().unwrap_or_default(),
-                "guild_icon": guild.icon.clone().unwrap_or_default(),
-                "channels": channels_data,
-            }));
-        }
+        context.insert("guilds", &guilds);
     }
-    context.insert("channel_data", &channel_data);
-    context.insert("guild_data", &guild_data);
 
     Template::render("channel", &context.into_json())
 }

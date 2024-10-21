@@ -3,46 +3,44 @@ use chorus::types::MessageCreate;
 use pubserve::Subscriber;
 use rocket::response::stream::{Event, EventStream};
 use rocket::tokio::select;
-use rocket::tokio::sync::mpsc::{self, Receiver, Sender};
+use rocket::tokio::sync::broadcast::error::RecvError;
+use rocket::tokio::sync::broadcast::Sender;
 use rocket::tokio::sync::Mutex;
-use rocket::Route;
-use rocket::Shutdown;
 use rocket::State;
+use rocket::{Route, Shutdown};
 use std::sync::Arc;
 
 #[derive(Debug)]
-pub struct MessageEventObserver {
-    sender: Sender<MessageCreate>,
-    receiver: Mutex<Receiver<MessageCreate>>,
+pub struct MessageCreateObserver {
+    queue: Sender<MessageCreate>,
 }
 
 #[async_trait]
-impl Subscriber<MessageCreate> for MessageEventObserver {
-    // After we subscribe to an event this function is called every time we receive it
+impl Subscriber<MessageCreate> for MessageCreateObserver {
     async fn update(&self, data: &MessageCreate) {
-        println!("Received message event: {:?}", data);
-        if let Err(e) = self.sender.send(data.clone()).await {
-            eprintln!("Failed to send message event: {:?}", e);
-        }
+        let _ = self.queue.send(data.clone());
+        println!("Observed Ready!");
     }
 }
 
-pub struct AppState {
-    observer: Option<Arc<MessageEventObserver>>,
-}
+#[get("/events")]
+pub async fn event_stream(
+    user: &State<Arc<Mutex<Option<ChorusUser>>>>,
+    queue: &State<Sender<MessageCreate>>,
+    mut end: Shutdown,
+) -> EventStream![] {
+    let mut rx = queue.subscribe();
 
-/// Initializes the observer and returns the application state.
-pub async fn initialize_observer(user: Arc<Mutex<Option<ChorusUser>>>) -> AppState {
-    println!("Initializing observer");
-    let (tx, rx) = mpsc::channel(100);
-    let observer = MessageEventObserver {
-        sender: tx,
-        receiver: Mutex::new(rx),
-    };
-    let shared_observer = Arc::new(observer);
-
-    let mut user_lock = user.lock().await;
+    let mut user_lock: rocket::tokio::sync::MutexGuard<'_, Option<ChorusUser>> = user.lock().await;
     if let Some(chorus_user) = user_lock.as_mut() {
+        // Create an instance of our observer
+        let observer = MessageCreateObserver {
+            queue: queue.inner().clone(),
+        };
+
+        // Share ownership of the observer with the gateway
+        let shared_observer = Arc::new(observer);
+
         chorus_user
             .gateway
             .events
@@ -50,59 +48,26 @@ pub async fn initialize_observer(user: Arc<Mutex<Option<ChorusUser>>>) -> AppSta
             .await
             .message
             .create
-            .subscribe(shared_observer.clone());
+            .subscribe(shared_observer);
     }
-
-    AppState {
-        observer: Some(shared_observer),
-    }
-}
-
-/// Returns an infinite stream of server-sent events. Each event is a message
-/// pulled from a broadcast queue sent by the `post` handler.
-
-#[get("/events")]
-pub async fn events(state: &State<AppState>, mut end: Shutdown) -> EventStream![] {
-    let (tx, mut rx) = mpsc::channel(100);
-
-    let observer = state.observer.clone();
 
     EventStream! {
-        if let Some(observer) = observer {
-            // Forward messages from the existing receiver to the new channel
-            let observer_clone = observer.clone();
-            let new_tx = tx.clone();
+      loop {
+        let msg: MessageCreate = select! {
+                msg = rx.recv() => match msg {
+                    Ok(msg) => msg,
+                    Err(RecvError::Closed) => break,
+                    Err(RecvError::Lagged(_)) => continue,
+                },
+                _ = &mut end => break,
+            };
 
-            rocket::tokio::spawn(async move {
-                let mut existing_rx = observer_clone.receiver.lock().await;
-                while let Some(event) = existing_rx.recv().await {
-                    if new_tx.send(event).await.is_err() {
-                        break;
-                    }
-                }
-            });
+            yield Event::json(&msg);
 
-            loop {
-                select! {
-                    event = rx.recv() => {
-                        if let Some(event) = event {
-                            println!("Sending event: {:?}", event);
-                            yield Event::json(&event);
-                        } else {
-                            break;
-                        }
-                    },
-                    _ = &mut end => {
-                        break;
-                    }
-                }
-            }
-        } else {
-            yield Event::data("User not logged in");
-        }
+      }
     }
 }
 
 pub fn routes() -> Vec<Route> {
-    routes![events]
+    routes![event_stream]
 }

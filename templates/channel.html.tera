@@ -3,19 +3,19 @@
 {% block title %}Guild: {{ guild_id }}{% endblock %}
 
 {% block guilds %}
-{% for guild in guild_data %}
+{% for guild in guilds %}
 <li class="guild-icon">
-  <a href="/guilds/{{ guild.guild_id }}">
-    <img src="{{ guild.guild_icon }}" alt="{{ guild.guild_name }}">
+  <a href="/guilds/{{ guild.id }}">
+    <img src="{{ guild.icon }}" alt="{{ guild.name }}">
   </a>
 </li>
 {% endfor %}
 {% endblock %}
 
 {% block channels %}
-{% for guild in guild_data %}
+{% for guild in guilds %}
 {% for channel in guild.channels %}
-<li><a href="/guilds/{{ guild.guild_id }}/{{ channel.channel_id }}">{{ channel.channel_name }}</a></li>
+<li><a href="/guilds/{{ guild.id }}/{{ channel.id }}">{{ channel.name }}</a></li>
 {% endfor %}
 {% endfor %}
 {% endblock %}
@@ -28,9 +28,9 @@
   <div class="channel-section">
     <h3>Messages:</h3>
     <ul id="messages-list">
-      {% for message in channel_data.messages %}
+      {% for message in messages %}
       <li>
-        <strong>{{ message.author }}:</strong> {{ message.content }} <em>{{ message.timestamp }}</em>
+        <strong>{{ message.author.username }}:</strong> {{ message.content }} <em>{{ message.timestamp }}</em>
         {% if message.edited_timestamp %}
         <em>(edited at {{ message.edited_timestamp }})</em>
         {% endif %}
@@ -39,18 +39,6 @@
     </ul>
   </div>
 </div>
-{% endblock %}
-
-{% block send_box %}
-<div class="send-box">
-  <form action="/send_message" method="post">
-    <input type="hidden" name="guild_id" value="{{ guild_id }}">
-    <input type="hidden" name="channel_id" value="{{ channel_id }}">
-    <input type="text" name="content" placeholder="Type your message here">
-    <button type="submit">Send</button>
-  </form>
-</div>
-{% endblock %}
 
 <script>
   function addMessage(channel_id, author, content, append) {
@@ -75,7 +63,7 @@
         const msg = JSON.parse(ev.data);
         console.log("decoded data", JSON.stringify(msg));
         if (!("content" in msg) || !("channel_id" in msg) || !("author" in msg)) return;
-        addMessage(msg.channel_id, msg.author, msg.content, true);
+        addMessage(msg.channel_id, msg.author.username, msg.content, true);
       });
 
       events.addEventListener("open", () => {
@@ -98,3 +86,15 @@
 
   subscribe(`http://127.0.0.1:8000/events`);
 </script>
+{% endblock %}
+
+{% block send_box %}
+<div class="send-box">
+  <form action="/send_message" method="post">
+    <input type="hidden" name="guild_id" value="{{ guild_id }}">
+    <input type="hidden" name="channel_id" value="{{ channel_id }}">
+    <input type="text" name="content" placeholder="Type your message here">
+    <button type="submit">Send</button>
+  </form>
+</div>
+{% endblock %}

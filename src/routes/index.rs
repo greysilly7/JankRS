@@ -9,7 +9,7 @@ use std::sync::Arc;
 #[get("/")]
 pub async fn index(user: &State<Arc<Mutex<Option<ChorusUser>>>>) -> Template {
     let mut context = HashMap::from([
-        ("instance_url", "".to_string()),
+        ("instance_url", "spacebar.greysilly7.xyz".to_string()),
         ("username", "".to_string()),
         ("password", "".to_string()),
         ("authenticated", "false".to_string()),
