@@ -15,14 +15,12 @@ use crate::request_guards::authencitaced_user::AuthenticatedUser;
 
 #[derive(FromForm)]
 pub struct SendMessageForm {
-    guild_id: String,
     channel_id: String,
     content: String,
 }
 
 #[derive(Deserialize)]
 pub struct LoadMoreMessagesRequest {
-    guild_id: String,
     channel_id: String,
     last_message_id: Option<String>,
 }

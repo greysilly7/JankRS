@@ -1,4 +1,3 @@
-use chorus::instance::ChorusUser;
 use rocket::Route;
 use rocket_dyn_templates::tera::Context;
 use rocket_dyn_templates::Template;
