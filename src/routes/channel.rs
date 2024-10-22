@@ -93,47 +93,65 @@ pub async fn load_more_messages(
     let mut user_lock = user.0.lock().await;
 
     if let Some(chorus_user) = user_lock.as_mut() {
-        let channel_id = Snowflake::from(
-            load_more_messages_request
-                .channel_id
-                .parse::<u64>()
-                .unwrap(),
-        );
+        let channel_id = match load_more_messages_request.channel_id.parse::<u64>() {
+            Ok(id) => Snowflake::from(id),
+            Err(_) => {
+                let mut error_response = HashMap::new();
+                error_response.insert("error".to_string(), "Invalid channel ID".to_string());
+                return Err(Custom(
+                    rocket::http::Status::BadRequest,
+                    Json(error_response),
+                ));
+            }
+        };
+
         let last_message_id = load_more_messages_request
             .last_message_id
-            .map(|id| Snowflake::from(id.parse::<u64>().unwrap()));
+            .and_then(|id| id.parse::<u64>().ok().map(Snowflake::from));
 
-        let messages = Channel::messages(
-            GetChannelMessagesSchema::before(last_message_id.unwrap_or_else(Snowflake::generate)),
+        let messages_result = Channel::messages(
+            GetChannelMessagesSchema::before(last_message_id.unwrap_or_default()),
             channel_id,
             chorus_user,
         )
-        .await
-        .unwrap_or_default();
+        .await;
+
+        let mut messages = match messages_result {
+            Ok(msgs) => msgs,
+            Err(_) => {
+                let mut error_response = HashMap::new();
+                error_response.insert("error".to_string(), "Failed to fetch messages".to_string());
+                return Err(Custom(
+                    rocket::http::Status::InternalServerError,
+                    Json(error_response),
+                ));
+            }
+        };
+
+        // Sort messages by timestamp
+        messages.sort_by_key(|m| m.timestamp);
 
         let response: Vec<HashMap<String, String>> = messages
             .into_iter()
             .map(|message| {
+                let author = message
+                    .author
+                    .as_ref()
+                    .map_or("Unknown".to_string(), |author| {
+                        author
+                            .username
+                            .clone()
+                            .unwrap_or_else(|| "Unknown".to_string())
+                    });
+
+                let edited_timestamp = message.edited_timestamp.unwrap_or_default().to_string();
+
                 HashMap::from([
                     ("id".to_string(), message.id.to_string()),
-                    (
-                        "author".to_string(),
-                        message
-                            .author
-                            .as_ref()
-                            .map_or("Unknown".to_string(), |author| {
-                                author
-                                    .username
-                                    .clone()
-                                    .unwrap_or_else(|| "Unknown".to_string())
-                            }),
-                    ),
-                    ("content".to_string(), message.content.unwrap()),
+                    ("author".to_string(), author),
+                    ("content".to_string(), message.content.unwrap_or_default()),
                     ("timestamp".to_string(), message.timestamp.to_string()),
-                    (
-                        "edited_timestamp".to_string(),
-                        message.edited_timestamp.unwrap_or_default().to_string(),
-                    ),
+                    ("edited_timestamp".to_string(), edited_timestamp),
                 ])
             })
             .collect();
