@@ -30,11 +30,11 @@
     <ul id="messages-list">
       {% for message in messages %}
       <li class="message-item" data-message-id="{{ message.id }}">
-        <div class="message-author">{{ message.author.username }}</div>
-        <div class="message-content">{{ message.content }}</div>
-        <div class="message-timestamp">{{ message.timestamp }}</div>
+        <div class="message-author">{{ message.author.username | escape}}</div>
+        <div class="message-content">{{ message.content | escape }}</div>
+        <div class="message-timestamp">{{ message.timestamp | date(format="%Y-%m-%d %H:%M")}}</div>
         {% if message.edited_timestamp %}
-        <div class="message-timestamp">(edited at {{ message.edited_timestamp }})</div>
+        <div class="message-timestamp">(edited at {{ message.edited_timestamp | date(format="%Y-%m-%d %H:%M")}})</div>
         {% endif %}
       </li>
       {% endfor %}
@@ -56,6 +56,28 @@
 
 {% block scripts %}
 <script>
+  function escapeHtml(unsafe) {
+    return unsafe
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  function formatTimestamp(timestamp) {
+    const date = new Date(timestamp);
+    const userLocale = navigator.language || 'en-US'; // Fallback to 'en-US' if locale is not available
+    return new Intl.DateTimeFormat(userLocale, {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    }).format(date).replace(',', '');
+  }
+
   function addMessage(id, author, content, timestamp, editedTimestamp) {
     const messagesList = document.getElementById('messages-list');
     if (document.querySelector(`.message-item[data-message-id="${id}"]`)) {
@@ -63,12 +85,19 @@
     }
     const newMessage = document.createElement('li');
     newMessage.classList.add('message-item');
-    newMessage.dataset.messageId = id;
+    newMessage.setAttribute('data-message-id', id);
+
+    // Format the timestamp
+    const formattedTimestamp = timestamp !== "1970-01-01 00:00:00 UTC" ? formatTimestamp(timestamp) : '';
+
+    // Format the edited timestamp if it exists and is not epoch 0
+    const formattedEditedTimestamp = editedTimestamp && editedTimestamp !== "1970-01-01 00:00:00 " ? formatTimestamp(editedTimestamp) : '';
+
     newMessage.innerHTML = `
-      <div class="message-author">${author}</div>
-      <div class="message-content">${content}</div>
-      <div class="message-timestamp">${timestamp}</div>
-      ${editedTimestamp ? `<div class="message-timestamp">(edited at ${editedTimestamp})</div>` : ''}
+      <div class="message-author">${escapeHtml(author)}</div>
+      <div class="message-content">${escapeHtml(content)}</div>
+      ${formattedTimestamp ? `<div class="message-timestamp">${formattedTimestamp}</div>` : ''}
+      ${formattedEditedTimestamp ? `<div class="message-timestamp">(edited at ${formattedEditedTimestamp})</div>` : ''}
     `;
     messagesList.appendChild(newMessage);
     messagesList.scrollTop = messagesList.scrollHeight; // Scroll to the bottom
@@ -140,35 +169,30 @@
   messagesList.addEventListener('scroll', async function () {
     if (messagesList.scrollTop === 0) {
       try {
-        const lastMessageId = messagesList.firstChild ? messagesList.firstChild.dataset.messageId : null;
-        const response = await fetch('/load_more_messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            guild_id: '{{ guild_id }}',
-            channel_id: '{{ channel_id }}',
-            last_message_id: lastMessageId,
-          }),
-        });
-
-        if (response.ok) {
-          const newMessages = await response.json();
-          newMessages.forEach(message => {
-            const newMessage = document.createElement('li');
-            newMessage.classList.add('message-item');
-            newMessage.dataset.messageId = message.id;
-            newMessage.innerHTML = `
-              <div class="message-author">${message.author.username}</div>
-              <div class="message-content">${message.content}</div>
-              <div class="message-timestamp">${message.timestamp}</div>
-              ${message.edited_timestamp ? `<div class="message-timestamp">(edited at ${message.edited_timestamp})</div>` : ''}
-            `;
-            messagesList.insertBefore(newMessage, messagesList.firstChild);
+        const firstChild = messagesList.firstElementChild;
+        const lastMessageId = firstChild ? firstChild.getAttribute('data-message-id') : null;
+        if (lastMessageId) {
+          const response = await fetch('/load_more_messages', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              guild_id: '{{ guild_id }}',
+              channel_id: '{{ channel_id }}',
+              last_message_id: lastMessageId,
+            }),
           });
-        } else {
-          console.error('Failed to load more messages');
+
+          if (response.ok) {
+            const newMessages = await response.json();
+            console.log('Loaded more messages:', newMessages);
+            newMessages.forEach(message => {
+              addMessage(message.id, message.author, message.content, message.timestamp, message.edited_timestamp);
+            });
+          } else {
+            console.error('Failed to load more messages');
+          }
         }
       } catch (error) {
         console.error('Error loading more messages:', error);
