@@ -3,19 +3,19 @@
 {% block title %}Guild: {{ guild_id }}{% endblock %}
 
 {% block guilds %}
-{% for guild in guilds %}
+{% for guild in guild_data %}
 <li class="guild-icon">
-  <a href="/guilds/{{ guild.id }}">
-    <img src="{{ guild.icon }}" alt="{{ guild.name }}">
+  <a href="/guilds/{{ guild.guild_id }}">
+    <img src="{{ guild.guild_icon }}" alt="{{ guild.guild_name }}">
   </a>
 </li>
 {% endfor %}
 {% endblock %}
 
 {% block channels %}
-{% for guild in guilds %}
+{% for guild in guild_data %}
 {% for channel in guild.channels %}
-<li><a href="/guilds/{{ guild.id }}/{{ channel.id }}">{{ channel.name }}</a></li>
+<li><a href="/guilds/{{ guild.guild_id }}/{{ channel.channel_id }}">{{ channel.channel_name }}</a></li>
 {% endfor %}
 {% endfor %}
 {% endblock %}
@@ -29,41 +29,89 @@
     <h3>Messages:</h3>
     <ul id="messages-list">
       {% for message in messages %}
-      <li>
-        <strong>{{ message.author.username }}:</strong> {{ message.content }} <em>{{ message.timestamp }}</em>
+      <li class="message-item" data-message-id="{{ message.id }}">
+        <div class="message-author">{{ message.author.username }}</div>
+        <div class="message-content">{{ message.content }}</div>
+        <div class="message-timestamp">{{ message.timestamp }}</div>
         {% if message.edited_timestamp %}
-        <em>(edited at {{ message.edited_timestamp }})</em>
+        <div class="message-timestamp">(edited at {{ message.edited_timestamp }})</div>
         {% endif %}
       </li>
       {% endfor %}
     </ul>
   </div>
 </div>
+{% endblock %}
 
+{% block send_box %}
+<div class="send-box">
+  <form id="send-message-form" action="/send_message" method="post">
+    <input type="hidden" name="guild_id" value="{{ guild_id }}">
+    <input type="hidden" name="channel_id" value="{{ channel_id }}">
+    <input type="text" name="content" placeholder="Type your message here" required>
+    <button type="submit">Send</button>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
 <script>
-  function addMessage(channel_id, author, content, append) {
+  function addMessage(id, author, content, timestamp, editedTimestamp) {
     const messagesList = document.getElementById('messages-list');
+    if (document.querySelector(`.message-item[data-message-id="${id}"]`)) {
+      return; // Message already exists, do not add it again
+    }
     const newMessage = document.createElement('li');
-    newMessage.innerHTML = `<strong>${author}:</strong> ${content}`;
-    if (append) {
-      messagesList.appendChild(newMessage);
-    } else {
-      messagesList.insertBefore(newMessage, messagesList.firstChild);
+    newMessage.classList.add('message-item');
+    newMessage.dataset.messageId = id;
+    newMessage.innerHTML = `
+      <div class="message-author">${author}</div>
+      <div class="message-content">${content}</div>
+      <div class="message-timestamp">${timestamp}</div>
+      ${editedTimestamp ? `<div class="message-timestamp">(edited at ${editedTimestamp})</div>` : ''}
+    `;
+    messagesList.appendChild(newMessage);
+    messagesList.scrollTop = messagesList.scrollHeight; // Scroll to the bottom
+  }
+
+  async function sendMessage(event) {
+    event.preventDefault();
+    const form = event.target;
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+
+    try {
+      const response = await fetch('/send_message', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams(data),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        // My observer should add automatically
+        // addMessage(result.id, result.author, result.content, result.timestamp, result.edited_timestamp);
+        form.reset();
+      } else {
+        console.error('Failed to send message');
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
     }
   }
 
   function subscribe(uri) {
-    var retryTime = 1;
+    let retryTime = 1;
 
     function connect(uri) {
       const events = new EventSource(uri);
 
       events.addEventListener("message", (ev) => {
-        console.log("raw data", JSON.stringify(ev.data));
         const msg = JSON.parse(ev.data);
-        console.log("decoded data", JSON.stringify(msg));
         if (!("content" in msg) || !("channel_id" in msg) || !("author" in msg)) return;
-        addMessage(msg.channel_id, msg.author.username, msg.content, true);
+        addMessage(msg.id, msg.author.username, msg.content, msg.timestamp, msg.edited_timestamp);
       });
 
       events.addEventListener("open", () => {
@@ -73,8 +121,7 @@
 
       events.addEventListener("error", () => {
         events.close();
-
-        let timeout = retryTime;
+        const timeout = retryTime;
         retryTime = Math.min(64, retryTime * 2);
         console.log(`connection lost. attempting to reconnect in ${timeout}s`);
         setTimeout(() => connect(uri), timeout * 1000);
@@ -84,17 +131,54 @@
     connect(uri);
   }
 
-  subscribe(`http://127.0.0.1:8000/events`);
-</script>
-{% endblock %}
+  document.getElementById('send-message-form').addEventListener('submit', sendMessage);
 
-{% block send_box %}
-<div class="send-box">
-  <form action="/send_message" method="post">
-    <input type="hidden" name="guild_id" value="{{ guild_id }}">
-    <input type="hidden" name="channel_id" value="{{ channel_id }}">
-    <input type="text" name="content" placeholder="Type your message here">
-    <button type="submit">Send</button>
-  </form>
-</div>
+  subscribe(`http://127.0.0.1:8000/events`);
+
+  // Infinite scrolling
+  const messagesList = document.getElementById('messages-list');
+  messagesList.addEventListener('scroll', async function () {
+    if (messagesList.scrollTop === 0) {
+      try {
+        const lastMessageId = messagesList.firstChild ? messagesList.firstChild.dataset.messageId : null;
+        const response = await fetch('/load_more_messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            guild_id: '{{ guild_id }}',
+            channel_id: '{{ channel_id }}',
+            last_message_id: lastMessageId,
+          }),
+        });
+
+        if (response.ok) {
+          const newMessages = await response.json();
+          newMessages.forEach(message => {
+            const newMessage = document.createElement('li');
+            newMessage.classList.add('message-item');
+            newMessage.dataset.messageId = message.id;
+            newMessage.innerHTML = `
+              <div class="message-author">${message.author.username}</div>
+              <div class="message-content">${message.content}</div>
+              <div class="message-timestamp">${message.timestamp}</div>
+              ${message.edited_timestamp ? `<div class="message-timestamp">(edited at ${message.edited_timestamp})</div>` : ''}
+            `;
+            messagesList.insertBefore(newMessage, messagesList.firstChild);
+          });
+        } else {
+          console.error('Failed to load more messages');
+        }
+      } catch (error) {
+        console.error('Error loading more messages:', error);
+      }
+    }
+  });
+
+  // Scroll to the bottom on page load
+  window.addEventListener('load', () => {
+    messagesList.scrollTop = messagesList.scrollHeight;
+  });
+</script>
 {% endblock %}

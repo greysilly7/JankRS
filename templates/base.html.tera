@@ -10,22 +10,25 @@
 
 <body>
   <div class="container">
-    <div class="guilds">
+    <nav class="guilds">
       {% block guilds %}{% endblock %}
-    </div>
-    <div class="channels">
+    </nav>
+    <aside class="channels">
       <h3>Channels</h3>
       <ul>
-        {% block channels %}{% endblock %}
+        {% block channels %}
+        <!-- Default empty block to ensure channels are rendered -->
+        {% endblock %}
       </ul>
-    </div>
-    <div class="messages">
+    </aside>
+    <main class="messages">
       {% block content %}{% endblock %}
       <div class="send-box">
         {% block send_box %}{% endblock %}
       </div>
-    </div>
+    </main>
   </div>
+  {% block scripts %}{% endblock %}
 </body>
 
 </html>

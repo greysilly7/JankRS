@@ -2,6 +2,7 @@
 extern crate rocket;
 
 mod models;
+mod request_guards;
 mod routes;
 
 use chorus::instance::ChorusUser;
@@ -13,7 +14,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 #[launch]
-fn rocket() -> _ {
+async fn rocket() -> _ {
     let user_state = Arc::new(Mutex::new(None::<ChorusUser>));
     let message_state = Arc::new(Mutex::new(
         HashMap::<String, Vec<HashMap<String, String>>>::new(),

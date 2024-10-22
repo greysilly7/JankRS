@@ -1,23 +1,21 @@
 use chorus::instance::ChorusUser;
-use rocket::tokio::sync::Mutex;
 use rocket::Route;
-use rocket::State;
 use rocket_dyn_templates::tera::Context;
 use rocket_dyn_templates::Template;
-use std::sync::Arc;
+
+use crate::request_guards::authencitaced_user::AuthenticatedUser;
 
 #[get("/guilds/<guild_id>")]
-pub async fn guild_page(guild_id: &str, user: &State<Arc<Mutex<Option<ChorusUser>>>>) -> Template {
+pub async fn guild_page(guild_id: &str, user: AuthenticatedUser) -> Template {
     let mut context = Context::new();
     context.insert("title", &format!("Guild: {}", guild_id));
     context.insert("guild_id", guild_id);
 
-    let mut user_lock: rocket::tokio::sync::MutexGuard<'_, Option<ChorusUser>> = user.lock().await;
+    let mut user_lock = user.0.lock().await;
     let mut guild_data = Vec::new();
     if let Some(chorus_user) = user_lock.as_mut() {
         let guilds = chorus_user.get_guilds(None).await.unwrap_or_default();
-        let guild = guilds.iter().find(|g| g.id.to_string() == guild_id);
-        if let Some(guild) = guild {
+        for guild in guilds.iter() {
             let channels = guild.channels(chorus_user).await.unwrap();
             let mut channels_data = Vec::new();
             for channel in channels {

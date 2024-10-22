@@ -1,15 +1,13 @@
-use chorus::instance::ChorusUser;
-use rocket::tokio::sync::Mutex;
 use rocket::Route;
-use rocket::State;
 use rocket_dyn_templates::tera::Context;
 use rocket_dyn_templates::Template;
 use std::collections::HashMap;
-use std::sync::Arc;
+
+use crate::request_guards::authencitaced_user::AuthenticatedUser;
 
 #[get("/home")]
-pub async fn home(user: &State<Arc<Mutex<Option<ChorusUser>>>>) -> Template {
-    let mut user_lock = user.lock().await;
+pub async fn home(user: AuthenticatedUser) -> Template {
+    let mut user_lock = user.0.lock().await;
     let mut context = Context::new();
 
     let mut users_data = Vec::new();
