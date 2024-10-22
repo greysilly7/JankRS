@@ -6,10 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-chorus = "0.17.0"
+chorus = { git = "https://github.com/polyphony-chat/chorus.git", branch = "dev" }
 pubserve = {version="1.1.0", features=["async", "async-trait"]}
 rocket = {version = "0.5.1", features = ["json"]}
-ws = { package = "rocket_ws", version = "0.1.1" }
 rocket_dyn_templates = { version = "0.2.0", features = ["tera", "handlebars"]}
 serde = { version = "1.0.120", features = ["derive"] }
 serde_json = "1.0.132"
