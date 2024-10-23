@@ -33,6 +33,7 @@ pub async fn login(
     context.insert("username", &login_form.username);
     context.insert("password", &login_form.password);
     context.insert("authenticated", &"false".to_string());
+    context.insert("users", &Vec::<String>::new()); // Ensure users is always present
 
     match instance_result {
         Ok(mut instance) => {
@@ -60,29 +61,7 @@ pub async fn login(
                     return Ok(Redirect::to(uri!("/home")));
                 }
                 Err(ChorusError::ReceivedErrorCode { error_code, error }) => {
-                    let error_message = format!("{}", error);
-                    println!("Login failed: {} - {}", error_code, error_message);
-                    if let Ok(error_response) =
-                        serde_json::from_str::<HashMap<String, Value>>(&error_message)
-                    {
-                        if let Some(captcha_required) = error_response.get("captcha_key") {
-                            if captcha_required.as_array().map_or(false, |arr| {
-                                arr.contains(&Value::String("captcha-required".to_string()))
-                            }) {
-                                context.insert("captcha_required", &"true".to_string());
-                                if let Some(sitekey) = error_response.get("captcha_sitekey") {
-                                    context.insert(
-                                        "captcha_sitekey",
-                                        &sitekey.as_str().unwrap().to_string(),
-                                    );
-                                }
-                            }
-                        }
-                    }
-                    context.insert(
-                        "error",
-                        &format!("Login failed: {} - {}", error_code, error_message),
-                    );
+                    handle_login_error(&mut context, error_code, error);
                 }
                 Err(e) => {
                     println!("Login failed: {}", e);
@@ -99,6 +78,27 @@ pub async fn login(
         }
     }
     Err(Template::render("index", &context.into_json()))
+}
+
+fn handle_login_error(context: &mut Context, error_code: u16, error: String) {
+    let error_message = format!("{}", error);
+    println!("Login failed: {} - {}", error_code, error_message);
+    if let Ok(error_response) = serde_json::from_str::<HashMap<String, Value>>(&error_message) {
+        if let Some(captcha_required) = error_response.get("captcha_key") {
+            if captcha_required.as_array().map_or(false, |arr| {
+                arr.contains(&Value::String("captcha-required".to_string()))
+            }) {
+                context.insert("captcha_required", &"true".to_string());
+                if let Some(sitekey) = error_response.get("captcha_sitekey") {
+                    context.insert("captcha_sitekey", &sitekey.as_str().unwrap().to_string());
+                }
+            }
+        }
+    }
+    context.insert(
+        "error",
+        &format!("Login failed: {} - {}", error_code, error_message),
+    );
 }
 
 pub fn routes() -> Vec<Route> {

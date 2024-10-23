@@ -15,7 +15,10 @@ pub async fn guild_page(guild_id: &str, user: AuthenticatedUser) -> Template {
     if let Some(chorus_user) = user_lock.as_mut() {
         let guilds = chorus_user.get_guilds(None).await.unwrap_or_default();
         for guild in guilds.iter() {
-            let channels = guild.channels(chorus_user).await.unwrap();
+            let channels = match guild.channels(chorus_user).await {
+                Ok(channels) => channels,
+                Err(_) => continue, // Skip this guild if channels cannot be fetched
+            };
             let mut channels_data = Vec::new();
             for channel in channels {
                 channels_data.push(serde_json::json!({

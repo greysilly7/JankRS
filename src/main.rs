@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate rocket;
 
+mod gw_observors;
 mod models;
 mod request_guards;
 mod routes;

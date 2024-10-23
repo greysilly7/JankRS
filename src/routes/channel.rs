@@ -35,7 +35,17 @@ pub async fn send_message(
     let mut user_lock = user.0.lock().await;
 
     if let Some(chorus_user) = user_lock.as_mut() {
-        let channel_id = Snowflake::from(send_message_form.channel_id.parse::<u64>().unwrap());
+        let channel_id = match send_message_form.channel_id.parse::<u64>() {
+            Ok(id) => Snowflake::from(id),
+            Err(_) => {
+                let mut error_response = HashMap::new();
+                error_response.insert("error".to_string(), "Invalid channel ID".to_string());
+                return Err(Custom(
+                    rocket::http::Status::BadRequest,
+                    Json(error_response),
+                ));
+            }
+        };
 
         if let Ok(message) = chorus_user
             .send_message(
@@ -56,7 +66,10 @@ pub async fn send_message(
                 ("id".to_string(), message.id.to_string()),
                 (
                     "author".to_string(),
-                    chorus_user.object.read().unwrap().username.clone(),
+                    chorus_user
+                        .object
+                        .read()
+                        .map_or("Unknown".to_string(), |obj| obj.username.clone()),
                 ),
                 ("content".to_string(), send_message_form.content.clone()),
                 ("timestamp".to_string(), message.timestamp.to_string()),
@@ -67,7 +80,10 @@ pub async fn send_message(
                 ("id".to_string(), message.id.to_string()),
                 (
                     "author".to_string(),
-                    chorus_user.object.read().unwrap().username.clone(),
+                    chorus_user
+                        .object
+                        .read()
+                        .map_or("Unknown".to_string(), |obj| obj.username.clone()),
                 ),
                 ("content".to_string(), send_message_form.content),
                 ("timestamp".to_string(), message.timestamp.to_string()),
@@ -182,7 +198,10 @@ pub async fn channel_page(guild_id: &str, channel_id: &str, user: AuthenticatedU
     if let Some(chorus_user) = user_lock.as_mut() {
         let guilds = chorus_user.get_guilds(None).await.unwrap_or_default();
         for guild in guilds.iter() {
-            let channels = guild.channels(chorus_user).await.unwrap();
+            let channels = match guild.channels(chorus_user).await {
+                Ok(channels) => channels,
+                Err(_) => continue, // Skip this guild if channels cannot be fetched
+            };
             let mut channels_data = Vec::new();
             for channel in channels {
                 channels_data.push(serde_json::json!({
@@ -198,16 +217,32 @@ pub async fn channel_page(guild_id: &str, channel_id: &str, user: AuthenticatedU
             }));
         }
 
-        let channel_id = Snowflake::from(channel_id.parse::<u64>().unwrap());
+        let channel_id = match channel_id.parse::<u64>() {
+            Ok(id) => Snowflake::from(id),
+            Err(_) => {
+                let mut error_response = HashMap::new();
+                error_response.insert("error".to_string(), "Invalid channel ID".to_string());
+                context.insert("error", &error_response);
+                return Template::render("error", &context.into_json());
+            }
+        };
 
         // Fetch messages from the channel
-        let mut messages = Channel::messages(
+        let mut messages = match Channel::messages(
             GetChannelMessagesSchema::before(Snowflake::generate()),
             channel_id,
             chorus_user,
         )
         .await
-        .unwrap_or_default();
+        {
+            Ok(msgs) => msgs,
+            Err(_) => {
+                let mut error_response = HashMap::new();
+                error_response.insert("error".to_string(), "Failed to fetch messages".to_string());
+                context.insert("error", &error_response);
+                return Template::render("error", &context.into_json());
+            }
+        };
         messages.sort_by_key(|m| m.timestamp); // Sort messages by timestamp
         context.insert("messages", &messages);
         context.insert("guild_data", &guild_data); // Insert guild_data into context

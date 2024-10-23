@@ -1,39 +1,21 @@
-use rocket::Route;
-use rocket_dyn_templates::tera::Context;
+use chorus::instance::ChorusUser;
+use rocket::tokio::sync::Mutex;
+use rocket::State;
+use rocket::{get, Route};
 use rocket_dyn_templates::Template;
 use std::collections::HashMap;
-
-use crate::request_guards::authencitaced_user::AuthenticatedUser;
+use std::sync::Arc;
 
 #[get("/home")]
-pub async fn home(user: AuthenticatedUser) -> Template {
-    let mut user_lock = user.0.lock().await;
-    let mut context = Context::new();
-
+pub async fn home(user: &State<Arc<Mutex<Option<ChorusUser>>>>) -> Template {
+    let mut context = HashMap::new();
     let mut users_data = Vec::new();
 
-    if let Some(chorus_user) = user_lock.as_mut() {
+    let user = user.lock().await;
+    if let Some(chorus_user) = &*user {
         let username = chorus_user.object.read().unwrap().username.clone();
-
-        // Fetch guilds
-        let guilds = chorus_user.get_guilds(None).await.unwrap_or_default();
-        let guilds_data: Vec<HashMap<String, String>> = guilds
-            .iter()
-            .map(|g| {
-                let mut guild_data = HashMap::new();
-                guild_data.insert("guild_id".to_string(), g.id.to_string());
-                guild_data.insert("guild_name".to_string(), g.name.clone().unwrap_or_default());
-                guild_data.insert("guild_icon".to_string(), g.icon.clone().unwrap_or_default());
-                guild_data
-            })
-            .collect();
-
-        // Fetch private messages (assuming a method `get_private_channels` exists)
-        let private_channels = chorus_user.get_private_channels().await.unwrap_or_default();
-        let private_message_contents: Vec<String> = private_channels
-            .iter()
-            .filter_map(|c| c.name.clone())
-            .collect();
+        let guilds_data = fetch_guilds_data(chorus_user.clone()).await;
+        let private_message_contents = fetch_private_messages(chorus_user.clone()).await;
 
         users_data.push(serde_json::json!({
             "username": username,
@@ -42,11 +24,31 @@ pub async fn home(user: AuthenticatedUser) -> Template {
         }));
     }
 
-    context.insert("title", "Home");
-    context.insert("users_data", &users_data);
-    Template::render("home", &context.into_json())
+    context.insert("users_data", serde_json::json!(users_data));
+    Template::render("home", &context)
 }
 
+async fn fetch_guilds_data(mut chorus_user: ChorusUser) -> Vec<HashMap<String, String>> {
+    let guilds = chorus_user.get_guilds(None).await.unwrap_or_default();
+    guilds
+        .iter()
+        .map(|g| {
+            let mut guild_data = HashMap::new();
+            guild_data.insert("guild_id".to_string(), g.id.to_string());
+            guild_data.insert("guild_name".to_string(), g.name.clone().unwrap_or_default());
+            guild_data.insert("guild_icon".to_string(), g.icon.clone().unwrap_or_default());
+            guild_data
+        })
+        .collect()
+}
+
+async fn fetch_private_messages(mut chorus_user: ChorusUser) -> Vec<String> {
+    let private_channels = chorus_user.get_private_channels().await.unwrap_or_default();
+    private_channels
+        .iter()
+        .filter_map(|c| c.name.clone())
+        .collect()
+}
 pub fn routes() -> Vec<Route> {
     routes![home]
 }
