@@ -42,7 +42,7 @@
       };
     in rec {
       packages = {
-        pocbot = rustPkgs.workspace.jank_rs {};
+        jank_rs = rustPkgs.workspace.jank_rs {};
         default = packages.jank_rs.bin;
       };
       devShells = {
