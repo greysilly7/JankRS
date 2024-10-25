@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register</title>
+  <link rel="stylesheet" href="/static/css/styles.css">
+  <script src="https://hcaptcha.com/1/api.js" async defer></script>
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+</head>
+
+<body>
+  <div class="register-container">
+    <h1>Register</h1>
+    {% if register_error %}
+    <div class="error">{{ register_error }}</div>
+    {% endif %}
+    <form action="/register" method="post">
+      <label for="reg_instance_url">Instance URL:</label>
+      <input type="text" id="reg_instance_url" name="instance_url" value="{{ instance_url }}" required>
+      <label for="reg_username">Username:</label>
+      <input type="text" id="reg_username" name="username" value="{{ username }}" required>
+      <label for="reg_password">Password:</label>
+      <input type="password" id="reg_password" name="password" value="{{ password }}" required>
+      <label for="reg_email">Email:</label>
+      <input type="email" id="reg_email" name="email" value="{{ email }}">
+      <label for="reg_date_of_birth">Date of Birth:</label>
+      <input type="date" id="reg_date_of_birth" name="date_of_birth" value="{{ date_of_birth }}">
+      {% if captcha_required %}
+      {% if captcha_service == "hcaptcha" %}
+      <div class="h-captcha" data-sitekey="{{ captcha_sitekey }}"></div>
+      {% elif captcha_service == "turnstile" %}
+      <div class="cf-turnstile" data-sitekey="{{ captcha_sitekey }}"></div>
+      {% endif %}
+      {% endif %}
+      <button type="submit">Register</button>
+    </form>
+  </div>
+</body>
+
+</html>

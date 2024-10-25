@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 chorus = { git = "https://github.com/polyphony-chat/chorus.git", branch = "dev" }
+chrono = "0.4.38"
 pubserve = {version="1.1.0", features=["async", "async-trait"]}
 rocket = {version = "0.5.1", features = ["json"]}
 rocket_dyn_templates = { version = "0.2.0", features = ["tera", "handlebars"]}

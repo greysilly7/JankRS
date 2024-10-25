@@ -1,58 +1,50 @@
 {
-  description = "A flake for building a Rust project with cargo2nix";
+  # ...
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    cargo2nix.url = "github:cargo2nix/cargo2nix/main";
-    flake-utils.follows = "cargo2nix/flake-utils";
-    rust-overlay = {
-      url = "github:oxalica/rust-overlay";
-      inputs.nixpkgs.follows = "nixpkgs";
+    flake-parts = {
+      url = "github:hercules-ci/flake-parts";
+      inputs.nixpkgs-lib.follows = "nixpkgs";
     };
+    crate2nix.url = "github:nix-community/crate2nix";
+    # ...
   };
 
-  outputs = {
+  outputs = inputs @ {
     self,
     nixpkgs,
-    cargo2nix,
+    flake-parts,
     rust-overlay,
-    flake-utils,
+    crate2nix,
+    ...
   }:
-    flake-utils.lib.eachDefaultSystem (system: let
-      pkgs = import nixpkgs {
-        inherit system;
-        overlays = [cargo2nix.overlays.default rust-overlay.overlays.default];
-      };
-      rustPkgs = pkgs.rustBuilder.makePackageSet {
-        packageFun = import ./Cargo.nix;
-        rustVersion = "1.81.0";
-        extraRustComponents = ["rustfmt" "clippy"];
-      };
-      workspaceShell = rustPkgs.workspaceShell {
-        # packages = [ pkgs.somethingExtra ];
-        # shellHook = ''
-        #   export PS1="\033[0;31m☠dev-shell☠ $ \033[0m"
-        # '';
-      }; # supports override & overrideAttrs
+    flake-parts.lib.mkFlake {inherit inputs;} {
+      systems = [
+        "x86_64-linux"
+        "aarch64-linux"
+        "x86_64-linux"
+        "aarch64-darwin"
+      ];
 
-      bootstrapShell = pkgs.mkShell {
-        packages = [cargo2nix];
-        # inputsFrom = [ cargo2nix ];
-        nativeBuildInputs = cargo2nix.nativeBuildInputs;
-      };
-    in rec {
-      packages = {
-        jank_rs = rustPkgs.workspace.jank_rs {};
-        default = packages.jank_rs.bin;
-      };
-      devShells = {
-        default = workspaceShell;
-        # ootstrap = bootstrapShell;
-      };
-    });
+      perSystem = {
+        system,
+        pkgs,
+        lib,
+        inputs',
+        ...
+      }: let
+        cargoNix = import ./Cargo.nix {inherit pkgs;};
+      in rec {
+        checks = {
+          jank_rs = cargoNix.rootCrate.build.override {
+            runTests = true;
+          };
+        };
 
-  nixConfig = {
-    extra-substituters = ["https://pocbot.cachix.org"];
-    extra-trusted-public-keys = ["pocbot.cachix.org-1:CQf58F6rUcUA/mHTJN0YJRyK1AfIOUe8bu7lP45hhjo="];
-  };
+        packages = {
+          jank_rs = cargoNix.rootCrate.build;
+          default = packages.jank_rs;
+        };
+      };
+    };
 }

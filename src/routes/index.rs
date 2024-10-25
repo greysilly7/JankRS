@@ -26,10 +26,11 @@ pub async fn index(user: &State<Arc<Mutex<Option<ChorusUser>>>>) -> Template {
 
 fn create_initial_context() -> HashMap<&'static str, String> {
     HashMap::from([
-        ("instance_url", "spacebar.greysilly7.xyz".to_string()),
+        ("instance_url", "".to_string()),
         ("username", "".to_string()),
         ("password", "".to_string()),
         ("authenticated", "false".to_string()),
+        ("email", "".to_string()),
     ])
 }
 

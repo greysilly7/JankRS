@@ -4,13 +4,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login</title>
+  <title>Home</title>
   <link rel="stylesheet" href="/static/css/styles.css">
-  <script src="https://hcaptcha.com/1/api.js" async defer></script>
 </head>
 
 <body>
-  <div class="login-container">
+  <div class="home-container">
     {% if authenticated == "true" %}
     <h1>Welcome, {{ user }}!</h1>
     <p>Select a user:</p>
@@ -20,22 +19,8 @@
       {% endfor %}
     </ul>
     {% else %}
-    <h1>Login</h1>
-    {% if error %}
-    <div class="error">{{ error }}</div>
-    {% endif %}
-    <form action="/login" method="post">
-      <label for="instance_url">Instance URL:</label>
-      <input type="text" id="instance_url" name="instance_url" value="{{ instance_url }}" required>
-      <label for="username">Username:</label>
-      <input type="text" id="username" name="username" value="{{ username }}" required>
-      <label for="password">Password:</label>
-      <input type="password" id="password" name="password" value="{{ password }}" required>
-      {% if captcha_required %}
-      <div class="h-captcha" data-sitekey="{{ captcha_sitekey }}"></div>
-      {% endif %}
-      <button type="submit">Login</button>
-    </form>
+    <h1>Welcome to the Home Page</h1>
+    <p>Please <a href="/login">login</a> or <a href="/register">register</a>.</p>
     {% endif %}
   </div>
 </body>

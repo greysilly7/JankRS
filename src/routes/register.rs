@@ -1,6 +1,7 @@
 use chorus::errors::ChorusError;
 use chorus::instance::{ChorusUser, Instance};
-use chorus::types::LoginSchema;
+use chorus::types::RegisterSchema;
+use chrono::NaiveDate;
 use rocket::form::{Form, FromForm};
 use rocket::response::Redirect;
 use rocket::tokio::sync::Mutex;
@@ -13,57 +14,68 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 #[derive(FromForm)]
-pub struct LoginForm {
+pub struct RegisterForm {
     instance_url: String,
     username: String,
     password: String,
+    email: Option<String>,
+    date_of_birth: Option<String>,
     #[field(name = "h-captcha-response")]
     captcha_response: Option<String>,
 }
 
-#[get("/login")]
-pub async fn login_page() -> Template {
+#[get("/register")]
+pub async fn register_page() -> Template {
     let mut context = Context::new();
     context.insert("instance_url", &"".to_string());
     context.insert("username", &"".to_string());
     context.insert("password", &"".to_string());
     context.insert("email", &"".to_string());
-    context.insert("authenticated", &"false".to_string());
-    context.insert("users", &Vec::<String>::new()); // Ensure users is always present
-    Template::render("login", &context.into_json())
+    context.insert("date_of_birth", &"".to_string());
+    Template::render("register", &context.into_json())
 }
 
-#[post("/login", data = "<login_form>")]
-pub async fn login(
-    login_form: Form<LoginForm>,
+#[post("/register", data = "<register_form>")]
+pub async fn register(
+    register_form: Form<RegisterForm>,
     user: &State<Arc<Mutex<Option<ChorusUser>>>>,
 ) -> Result<Redirect, Template> {
-    let instance_result = Instance::new(&login_form.instance_url, None).await;
-
     let mut context = Context::new();
-    context.insert("instance_url", &login_form.instance_url);
-    context.insert("username", &login_form.username);
-    context.insert("password", &login_form.password);
-    context.insert("email", &"".to_string()); // Add email to context
+    context.insert("instance_url", &register_form.instance_url);
+    context.insert("username", &register_form.username);
+    context.insert("password", &register_form.password);
+    context.insert("email", &register_form.email.clone().unwrap_or_default()); // Add email to context
+    context.insert("date_of_birth", &register_form.date_of_birth.clone().unwrap_or_default()); // Add date_of_birth to context
     context.insert("authenticated", &"false".to_string());
     context.insert("users", &Vec::<String>::new()); // Ensure users is always present
+
+    println!("{:?}", &register_form.instance_url);
+    
+    let instance_result = Instance::new(&register_form.instance_url, None).await;
 
     match instance_result {
         Ok(mut instance) => {
-            let login_schema = LoginSchema {
-                login: login_form.username.clone(),
-                password: login_form.password.clone(),
-                captcha_key: login_form.captcha_response.clone(),
+          println!("{:?}", &instance);
+            let date_of_birth = register_form.date_of_birth.as_ref()
+                .and_then(|dob| NaiveDate::parse_from_str(dob, "%Y-%m-%d").ok());
+
+            let register_schema = RegisterSchema {
+                username: register_form.username.clone(),
+                password: Some(register_form.password.clone()),
+                email: register_form.email.clone(),
+                date_of_birth,
+                captcha_key: register_form.captcha_response.clone(),
+                consent: true, // Assuming consent is always true for registration
                 ..Default::default()
             };
 
-            let user_result = instance.login_account(login_schema).await;
+            let user_result = instance.register_account(register_schema).await;
             match user_result {
-                Ok(logged_in_user) => {
+                Ok(registered_user) => {
                     let mut user_lock = user.lock().await;
-                    *user_lock = Some(logged_in_user.clone());
+                    *user_lock = Some(registered_user.clone());
 
-                    let username = logged_in_user.object.read().unwrap().username.clone();
+                    let username = registered_user.object.read().unwrap().username.clone();
                     context.insert("authenticated", &"true".to_string());
                     context.insert("user", &username);
 
@@ -74,28 +86,28 @@ pub async fn login(
                     return Ok(Redirect::to(uri!("/")));
                 }
                 Err(ChorusError::ReceivedErrorCode { error_code, error }) => {
-                    handle_login_error(&mut context, error_code, error);
+                    handle_register_error(&mut context, error_code, error);
                 }
                 Err(e) => {
-                    println!("Login failed: {}", e);
-                    context.insert("error", &format!("Login failed: {}", e));
+                    println!("Registration failed: {}", e);
+                    context.insert("register_error", &format!("Registration failed: {}", e));
                 }
             }
         }
         Err(e) => {
             println!("Failed to connect to the Spacebar server: {}", e);
             context.insert(
-                "error",
+                "register_error",
                 &format!("Failed to connect to the Spacebar server: {}", e),
             );
         }
     }
-    Err(Template::render("login", &context.into_json()))
+    Err(Template::render("register", &context.into_json()))
 }
 
-fn handle_login_error(context: &mut Context, error_code: u16, error: String) {
+fn handle_register_error(context: &mut Context, error_code: u16, error: String) {
     let error_message = format!("{}", error);
-    println!("Login failed: {} - {}", error_code, error_message);
+    println!("Registration failed: {} - {}", error_code, error_message);
     if let Ok(error_response) = serde_json::from_str::<HashMap<String, Value>>(&error_message) {
         if let Some(captcha_required) = error_response.get("captcha_key") {
             if captcha_required.as_array().map_or(false, |arr| {
@@ -106,17 +118,18 @@ fn handle_login_error(context: &mut Context, error_code: u16, error: String) {
                     context.insert("captcha_sitekey", &sitekey.as_str().unwrap().to_string());
                 }
                 if let Some(captcha_type) = error_response.get("captcha_service") {
+                  println!("{}", serde_json::to_string(&error_response).unwrap());
                     context.insert("captcha_service", &captcha_type.as_str().unwrap().to_string());
                 }
             }
         }
     }
     context.insert(
-        "error",
-        &format!("Login failed: {} - {}", error_code, error_message),
+        "register_error",
+        &format!("Registration failed: {} - {}", error_code, error_message),
     );
 }
 
 pub fn routes() -> Vec<Route> {
-    routes![login_page, login]
+    routes![register_page, register]
 }

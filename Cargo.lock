@@ -1054,6 +1054,7 @@ name = "jank_rs"
 version = "0.1.0"
 dependencies = [
  "chorus",
+ "chrono",
  "pubserve",
  "rocket",
  "rocket_dyn_templates",

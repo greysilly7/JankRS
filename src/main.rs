@@ -20,12 +20,13 @@ async fn rocket() -> _ {
     let message_state = Arc::new(Mutex::new(
         HashMap::<String, Vec<HashMap<String, String>>>::new(),
     ));
-    let (tx, _rx) = broadcast::channel::<MessageCreate>(100);
+    let (tx, _rx) = broadcast::channel::<Arc<MessageCreate>>(100);
 
     rocket::build()
         .attach(Template::fairing())
         .mount("/", routes::index::routes())
         .mount("/", routes::login::routes())
+        .mount("/", routes::register::routes())
         .mount("/", routes::home::routes())
         .mount("/", routes::guild::routes())
         .mount("/", routes::channel::routes())

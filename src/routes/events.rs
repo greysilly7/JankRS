@@ -13,7 +13,7 @@ use crate::request_guards::authencitaced_user::AuthenticatedUser;
 #[get("/events")]
 pub async fn event_stream(
     user: AuthenticatedUser,
-    queue: &State<Sender<MessageCreate>>,
+    queue: &State<Sender<Arc<MessageCreate>>>,
     mut end: Shutdown,
 ) -> EventStream![] {
     let mut rx = queue.subscribe();
@@ -23,7 +23,7 @@ pub async fn event_stream(
         let mut events_lock = chorus_user.gateway.events.lock().await;
         if !events_lock.message.create.has_subscribers() {
             let observer = Arc::new(MessageCreateObserver {
-                queue: queue.inner().clone(),
+                queue: (*queue).clone(),
             });
             events_lock.message.create.subscribe(observer);
         }
@@ -31,7 +31,7 @@ pub async fn event_stream(
 
     EventStream! {
         loop {
-            let msg: MessageCreate = select! {
+            let msg: Arc<MessageCreate> = select! {
                 msg = rx.recv() => match msg {
                     Ok(msg) => msg,
                     Err(RecvError::Closed) => break,
@@ -40,7 +40,7 @@ pub async fn event_stream(
                 _ = &mut end => break,
             };
 
-            yield Event::json(&msg);
+            yield Event::json(&*msg);
         }
     }
 }
